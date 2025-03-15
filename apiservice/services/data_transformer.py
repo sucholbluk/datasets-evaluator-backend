@@ -1,0 +1,40 @@
+from apiservice.clients.re3data_client import Re3DataClient
+
+
+class DataTransformer:
+    @classmethod
+    def transform_repository_data(cls, repositories_data):
+        for repository_data in repositories_data:
+            re3repository_data = Re3DataClient.get_repository_data((repository_data["id"]))
+
+            repository_data["last_update"] = cls.get_last_update(re3repository_data)
+            repository_data["api_url"] = cls.get_api_url(re3repository_data)
+            repository_data.pop("link", None)
+        return repositories_data
+
+    @classmethod
+    def get_api_url(cls, repository_data):
+        api_url = None
+        re3api = repository_data["r3d:api"]
+        # when there is only one api type provided it returns a dict, otherwise list of dicts
+        # imo it would be better if it had always the same structure
+        if isinstance(re3api, dict):
+            if re3api["@apiType"] != "OAI-PMH":
+                raise Exception("Change for custom exept - oai-pmh not supported")
+            return re3api["#text"]
+
+        for api in repository_data["r3d:api"]:
+            if api["@apiType"] == "OAI-PMH":
+                api_url = api["#text"]
+                break
+
+        if not api_url:
+            raise Exception("Change for custom exept - oai-pmh not supported")
+
+        # TODO some supposed OAI-PMH are not OAI-PMH apis XD -> check if said OAI-PMH is correct
+
+        return api_url
+
+    @classmethod
+    def get_last_update(cls, repository_data):
+        return repository_data["r3d:lastUpdate"]
