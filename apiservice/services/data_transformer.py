@@ -1,4 +1,6 @@
 from apiservice.clients.re3data_client import Re3DataClient
+from apiservice.exceptions import PageOutOfRangeException, InvalidPageSizeException
+from apiservice.models import Repository
 
 
 class DataTransformer:
@@ -38,3 +40,30 @@ class DataTransformer:
     @classmethod
     def get_last_update(cls, repository_data):
         return repository_data["r3d:lastUpdate"]
+
+    @classmethod
+    def get_repositories_response_json(cls, repositories, page_size, requested_page):
+        if page_size <= 0:
+            raise InvalidPageSizeException(page_size)
+
+        records_count = len(repositories)
+        pages_count = records_count // page_size + 1 if records_count else 0
+
+        if pages_count < requested_page or not requested_page:
+            raise PageOutOfRangeException(requested_page, pages_count)
+
+        records_start = (requested_page - 1) * page_size
+        records_end = requested_page * page_size if requested_page != pages_count else records_count
+
+        requested_records = [cls.serialize_repository(rep) for rep in repositories[records_start:records_end]]
+
+        return {
+            "pages_count": pages_count,
+            "current_page": requested_page,
+            "records_count": records_count,
+            "repositories": requested_records,
+        }
+
+    @classmethod
+    def serialize_repository(cls, repository: Repository):
+        return {"name": repository.name, "id": repository.id, "doi": repository.doi}
